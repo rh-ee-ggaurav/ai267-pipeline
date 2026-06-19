@@ -64,13 +64,13 @@ def secret_demo_pipeline():
     # 2. Inject Secret using the exact textbook function calls
     kubernetes.use_secret_as_env(
         task1,
-        secret_name="my-custom-secret",
+        secret_name="SECRET-NAME",
         secret_key_to_env={"api_user": "APP_USER"},
     )
     
     kubernetes.use_secret_as_env(
         task1,
-        secret_name="my-custom-secret",
+        secret_name="SECRET-NAME",
         secret_key_to_env={"api_key": "APP_KEY"},
     )
 
@@ -82,9 +82,9 @@ def secret_demo_pipeline():
 
     # 5. Apply explicit hardware requests and limits from the text definitions
     task2.set_memory_request("256Mi")
-    task2.set_memory_limit("512Mi")
+    task2.set_memory_limit("MEMORY-LIMIT-TODO")
     task2.set_cpu_request("256m")
-    task2.set_cpu_limit("1")
+    task2.set_cpu_limit("CPU-LIMIT-TODO")
 
 
 # ==============================================================================
