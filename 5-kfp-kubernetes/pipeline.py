@@ -1,35 +1,18 @@
-"""
+r"""
 ================================================================================
-PIPELINE DOCUMENTATION & ARCHITECTURE OVERVIEW
+PIPELINE DOCUMENTATION & ARCHITECTURE OVERVIEW (RED HAT COURSE ALIGNED)
 ================================================================================
 WHAT THIS PIPELINE DOES:
-1. Demonstrates the orchestration boundary between Kubernetes infrastructure 
-   layer storage configurations and runtime Kubeflow container tasks.
-2. Injects critical application metadata fields securely out of an existing 
-   Kubernetes Secret configuration map ('my-custom-secret') without hardcoding
-   passwords or access values inside the shared automation script files.
-3. Showcases cluster asset management configurations including:
-   - Cache invalidation options (forcing the step to compute fresh runs).
-   - Core hardware ceiling limits (CPU and Memory thresholds).
-
-VISUAL FLOW OF INFRASTRUCTURE CONFIGURATIONS:
-    [ Kubernetes Namespace Secret: my-custom-secret ]
-           |                              |
-      (api_user)                     (api_key)
-           |                              |
-    [ Injected as: APP_USER ]     [ Injected as: APP_KEY ]
-           \                              /
-            \                            /
-             v                          v
-      [ Component 1: Secret Printer Task ]  <-- Caching: Disabled
-                      |
-             [ Component 2: Execution Tracker Task ] <-- CPU/Mem Constraints
+1. Maps precisely to Chapter 7 of the RHOAI course textbook.
+2. Imports 'kubernetes' directly from the main 'kfp' module.
+3. Injects values from 'my-custom-secret' into container environment variables.
+4. Manages caching and sets precise task resource profiles.
 ================================================================================
 """
 
 import os
-from kfp import dsl, compiler
-from kfp_kubernetes import kubernetes  # Essential extension suite module for K8s mappings
+# Corrected Import: Importing kubernetes directly from kfp as shown in your book
+from kfp import dsl, kubernetes 
 
 BASE_IMAGE = "registry.access.redhat.com/ubi10/python-312-minimal:1781585939"
 
@@ -71,44 +54,43 @@ def track_execution(status_message: str):
 
 
 # ==============================================================================
-# PIPELINE ORCHESTRATION WITH RESOURCE METRIC RULES
+# PIPELINE ORCHESTRATION (Matches textbook syntax)
 # ==============================================================================
 @dsl.pipeline(name="kubernetes-secret-injection-demo")
 def secret_demo_pipeline():
-    # 1. Initialize Step 1
+    # 1. Initialize Step 1 Task
     task1 = print_secret_data()
 
-    # 2. INJECT SECRET FIELDS AS CONTAINER ENVIRONMENT VARIABLES:
-    # First field injection mapping: api_user value keys to APP_USER environment string
+    # 2. Inject Secret using the exact textbook function calls
     kubernetes.use_secret_as_env(
         task1,
-        secret_name="SECRET-NAME",
+        secret_name="my-custom-secret",
         secret_key_to_env={"api_user": "APP_USER"},
     )
     
-    # Second field injection mapping: api_key value keys to APP_KEY environment string
     kubernetes.use_secret_as_env(
         task1,
-        secret_name="SECRET-NAME",
+        secret_name="my-custom-secret",
         secret_key_to_env={"api_key": "APP_KEY"},
     )
 
-    # 3. CONFIGURE RUNTIME PIPELINE ENGINE BEHAVIOR:
-    # Disable caching options to force cluster compute executions every single run
+    # 3. Disable caching on the task handle
     task1.set_caching_options(False)
 
-    # 4. Initialize Step 2 and attach performance profiling rules
+    # 4. Initialize Step 2 Task
     task2 = track_execution(status_message=task1.output)
 
-    # Force strict performance scaling limits to enforce compute management bounds
-    task2.set_memory_request("GIVE-RAM-TODO")
-    task2.set_cpu_request("GIVE-CPU-TODO")
+    # 5. Apply explicit hardware requests and limits from the text definitions
+    task2.set_memory_request("256Mi")
+    task2.set_memory_limit("512Mi")
+    task2.set_cpu_request("256m")
+    task2.set_cpu_limit("1")
 
 
 # ==============================================================================
 # COMPILATION BLOCK
 # ==============================================================================
 if __name__ == "__main__":
+    from kfp import compiler
     compiler.Compiler().compile(secret_demo_pipeline, "pipeline.yaml")
-    print("\n[SUCCESS] 'pipeline.yaml' generated successfully.")
-    print("[INFO] Ready for import into the OpenShift AI dashboard workspace.")
+    print("\n[SUCCESS] 'pipeline.yaml' generated successfully matching course standards.")
