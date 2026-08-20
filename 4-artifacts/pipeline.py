@@ -124,10 +124,11 @@ def job_pipeline(
 ):
     # STEP 1: Turn your raw S3 URI string into a trackable KFP Artifact node.
     # This acts as the single data gatekeeper for your pipeline.
+    #reimport=False tells the system not to re-download or duplicate an existing file/artifact if it has already been registered in the pipeline metadata.
     import_data_task = importer(
         artifact_uri=s3_data_path,
         artifact_class=Dataset,
-        reimport=False,
+        reimport=False, 
     )
     
     # STEP 2: Pass the imported S3 artifact directly into the printer task.
