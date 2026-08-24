@@ -1,0 +1,131 @@
+# PIPELINE DEFINITION
+# Name: ai-content-moderator-pipeline
+# Description: A real-world style pipeline that filters text data and takes action.
+# Inputs:
+#    user_text_input: str [Default: 'This is a great tutorial, thanks!']
+components:
+  comp-check-text-safety:
+    executorLabel: exec-check-text-safety
+    inputDefinitions:
+      parameters:
+        user_comment:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-enforce-moderation:
+    executorLabel: exec-enforce-moderation
+    inputDefinitions:
+      parameters:
+        moderation_status:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-check-text-safety:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - check_text_safety
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef check_text_safety(user_comment: str) -> str:\n    \"\"\"Analyzes\
+          \ text to see if it contains banned words.\"\"\"\n    print(f\"Filter Step:\
+          \ Analyzing comment: '{user_comment}'\")\n\n    # Simple rule-based AI simulation\n\
+          \    cleaned_text = user_comment.lower()\n    if \"spam\" in cleaned_text\
+          \ or \"buy now\" in cleaned_text:\n        status = \"REJECT\"\n    else:\n\
+          \        status = \"APPROVE\"\n\n    print(f\"Filter Step: Analysis complete.\
+          \ Result status -> {status}\")\n    return status\n\n"
+        image: python:3.11-slim
+    exec-enforce-moderation:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - enforce_moderation
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef enforce_moderation(moderation_status: str):\n    \"\"\"Takes\
+          \ action based on the upstream filter's decision status.\"\"\"\n    print(f\"\
+          Enforcement Step: Received status: {moderation_status}\")\n\n    if moderation_status\
+          \ == \"REJECT\":\n        print(\"Enforcement Action: [REJECTED] Comment\
+          \ hidden! Sent to human moderators.\")\n    else:\n        print(\"Enforcement\
+          \ Action: [APPROVED] Comment approved! Published to feed.\")\n\n"
+        image: python:3.11-slim
+pipelineInfo:
+  description: A real-world style pipeline that filters text data and takes action.
+  name: ai-content-moderator-pipeline
+root:
+  dag:
+    tasks:
+      check-text-safety:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-check-text-safety
+        inputs:
+          parameters:
+            user_comment:
+              componentInputParameter: user_text_input
+        taskInfo:
+          name: check-text-safety
+      enforce-moderation:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-enforce-moderation
+        dependentTasks:
+        - check-text-safety
+        inputs:
+          parameters:
+            moderation_status:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: check-text-safety
+        taskInfo:
+          name: enforce-moderation
+  inputDefinitions:
+    parameters:
+      user_text_input:
+        defaultValue: This is a great tutorial, thanks!
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.15.2

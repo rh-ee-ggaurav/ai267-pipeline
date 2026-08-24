@@ -1,0 +1,138 @@
+# PIPELINE DEFINITION
+# Name: payroll-and-tax-pipeline
+# Description: Calculates gross earnings first, then computes a 30% tax deduction.
+# Inputs:
+#    input_hours: float [Default: 40.0]
+#    input_rate: float [Default: 25.0]
+components:
+  comp-calculate-30-percent-tax:
+    executorLabel: exec-calculate-30-percent-tax
+    inputDefinitions:
+      parameters:
+        gross_salary:
+          parameterType: NUMBER_DOUBLE
+  comp-calculate-salary:
+    executorLabel: exec-calculate-salary
+    inputDefinitions:
+      parameters:
+        hourly_rate:
+          parameterType: NUMBER_DOUBLE
+        hours_worked:
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+deploymentSpec:
+  executors:
+    exec-calculate-30-percent-tax:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - calculate_30_percent_tax
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef calculate_30_percent_tax(gross_salary: float):\n    \"\"\"Takes\
+          \ the calculated gross salary and computes a flat 30% tax.\"\"\"\n    tax_owed\
+          \ = gross_salary * 0.30\n    print(f\"Tax Component: Received Gross Salary\
+          \ input of ${gross_salary}\")\n    print(f\"Tax Component: 30% Tax Owed\
+          \ = ${tax_owed}\")\n\n"
+        image: registry.access.redhat.com/ubi10/python-312-minimal:1781585939
+    exec-calculate-salary:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - calculate_salary
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef calculate_salary(hours_worked: float, hourly_rate: float) ->\
+          \ float:\n    \"\"\"Multiplies hours by the rate to find the total gross\
+          \ salary earned.\"\"\"\n    gross_salary = hours_worked * hourly_rate\n\
+          \    print(f\"HR Component: Worked {hours_worked} hours at ${hourly_rate}/hour.\"\
+          )\n    print(f\"HR Component: Calculated Gross Salary = ${gross_salary}\"\
+          )\n    return gross_salary\n\n"
+        image: registry.access.redhat.com/ubi10/python-312-minimal:1781585939
+pipelineInfo:
+  description: Calculates gross earnings first, then computes a 30% tax deduction.
+  name: payroll-and-tax-pipeline
+root:
+  dag:
+    tasks:
+      calculate-30-percent-tax:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-calculate-30-percent-tax
+        dependentTasks:
+        - calculate-salary
+        inputs:
+          parameters:
+            gross_salary:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: calculate-salary
+        taskInfo:
+          name: calculate-30-percent-tax
+      calculate-salary:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-calculate-salary
+        inputs:
+          parameters:
+            hourly_rate:
+              componentInputParameter: input_rate
+            hours_worked:
+              componentInputParameter: input_hours
+        taskInfo:
+          name: calculate-salary
+  inputDefinitions:
+    parameters:
+      input_hours:
+        defaultValue: 40.0
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      input_rate:
+        defaultValue: 25.0
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.15.2
